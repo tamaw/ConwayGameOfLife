@@ -68,47 +68,52 @@ main = do
     --         else
     --             MSV.write gridA index (fromEnum Dead)
 
+    mv <- newEmptyMVar
+    mv2 <- newEmptyMVar
+
+    -- ch <- newChan
+    -- ch2 <- newChan
+
     let loop n = do
         let frontGrid = if even n then gridA else gridB
         let backGrid = if odd n then gridA else gridB
 
-        events <- SDL.pollEvents
-        mousepos <- SDL.getAbsoluteMouseLocation
+        -- events <- SDL.pollEvents
+        -- mousepos <- SDL.getAbsoluteMouseLocation
+
+        -- don't really need to split
+        -- let (a,b) = MSV.splitAt (width * height `div` 2) frontGrid
+        -- step frontGrid backGrid renderer (0, width * (height `div` 2))
+        -- step frontGrid backGrid renderer (width * (height `div` 2), width * height)
+
+        forkIO $ do
+           step frontGrid backGrid renderer (0, width * height `div` 2)
+        --    step2 a backGrid renderer (width * (height-3) `div` 2)
+           putMVar mv True
+        --    writeChan ch True
+           return ()
+
+
+        forkIO $ do
+           step frontGrid backGrid renderer (width * height `div` 2, width * height)
+        --    step2 b backGrid renderer (width * (height-3) `div` 2)
+        --    writeChan ch True
+           putMVar mv2 True
+           return ()
+
+        readMVar mv2
+        readMVar mv
+        -- readChan ch
+        -- readChan ch
 
         -- do box <- writeMVar
-        forkIO (MSV.write frontGrid 0 0)
+        -- forkIO (MSV.write frontGrid 0 0)
 
         -- let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
         let quit = n == 100
 
-        -- read from frontgrid and write to backgrid
-        for_ [0.. (width * height)] $ \i -> do
-            v <- MSV.read frontGrid (fromIntegral i)
-
-            let (x,y) = toCell i
-            let neighbours = getNeighbours (x,y)
-            let currentState = (toEnum v :: State)
-
-            aliveCount <- mapM (getCellState frontGrid) neighbours
-
-            let newState = evolve (sum aliveCount) currentState
-            -- let newState = if i /= 0 && n /= 0 && i `rem` n == 0 then Alive else Dead
-            -- let newState = if even n then Alive else Dead -- strobe light!
-
-            MSV.write backGrid i (fromEnum newState)
-
-        -- draw backgrid
-        for_ [0 .. (screenWidth -1)] $ \i ->
-            for_ [0 .. (screenHeight -1)] $ \j -> do
-                let index = (fromIntegral j * fromIntegral screenHeight) + fromIntegral i
-                v <- MSV.read backGrid index
-
-                if v == fromEnum Alive then
-                    SDL.rendererDrawColor renderer $= V4 0 0 0 0
-                else
-                    SDL.rendererDrawColor renderer $= V4 maxBound maxBound maxBound maxBound
-
-                SDL.drawPoint renderer (P (V2 i j))
+        -- step frontGrid backGrid renderer (width * height)
+        draw frontGrid backGrid renderer
 
         SDL.present renderer
         unless quit $ loop (n+1)
@@ -118,6 +123,51 @@ main = do
     SDL.destroyRenderer renderer
     SDL.destroyWindow window
     SDL.quit
+    where
+        step2 frontGrid backGrid renderer length =
+            for_ [0.. length] $ \i -> do
+                v <- MSV.read frontGrid (fromIntegral i)
+
+                let (x,y) = toCell i
+                let neighbours = getNeighbours (x,y)
+                let currentState = (toEnum v :: State)
+
+                aliveCount <- mapM (getCellState frontGrid) neighbours
+
+                let newState = evolve (sum aliveCount) currentState
+
+                MSV.write backGrid i (fromEnum newState)
+
+
+        -- read from frontgrid and write to backgrid
+        step frontGrid backGrid renderer (from,to) =
+            for_ [from.. to] $ \i -> do
+                v <- MSV.read frontGrid (fromIntegral i)
+
+                let (x,y) = toCell i
+                let neighbours = getNeighbours (x,y)
+                let currentState = (toEnum v :: State)
+
+                aliveCount <- mapM (getCellState frontGrid) neighbours
+
+                let newState = evolve (sum aliveCount) currentState
+
+                MSV.write backGrid i (fromEnum newState)
+
+        draw frontGrid backGrid renderer =
+            for_ [0 .. (screenWidth -1)] $ \i ->
+                for_ [0 .. (screenHeight -1)] $ \j -> do
+                    let index = (fromIntegral j * fromIntegral screenHeight) + fromIntegral i
+                    v <- MSV.read backGrid index
+
+                    if v == fromEnum Alive then
+                        SDL.rendererDrawColor renderer $= V4 0 0 0 0
+                    else
+                        SDL.rendererDrawColor renderer $= V4 maxBound maxBound maxBound maxBound
+
+                    SDL.drawPoint renderer (P (V2 i j))
+
+
 
 -- handleEvent :: Point V2 CInt -> SDL.EventPayload -> Int
 -- handleEvent mousepos ev =

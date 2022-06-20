@@ -8,13 +8,16 @@ Produces some interesting results when benchmarking and changing options.
 
 - sdl2 - `stack install sdl2`
 
-## Build & Run
+## Screenshots
 
-`stack ghc -- Main.hs -O2 -threaded -rtsopts`
+![image](https://user-images.githubusercontent.com/461535/174538486-ae88a841-3182-4647-b27d-ee3eb176826e.png)
+![image](https://user-images.githubusercontent.com/461535/174538801-f301d72c-3228-4f5d-b100-03d400684ec4.png)
 
-`./Main +RTS -s -N2 -H400M -A400M`
 
 ## Some results
+
+`stack ghc -- Main.hs -O2 -threaded -rtsopts`
+`./Main +RTS -s -N2 -H400M -A400M`
 
 ```text
   15,759,518,280 bytes allocated in the heap
